@@ -57,15 +57,15 @@ $$\hat{\tau}_{1t} = Y_{1t} - \hat{Y}_{1t}^N$$
 
 ```
 scm_zhejiang_prosperity/
-├── README.md                 # 项目说明
-├── requirements.txt          # Python依赖
+├── README.md                       # 项目说明
+├── requirements.txt                # Python依赖
 ├── data/
-│   ├── raw/                  # 原始数据
-│   ├── processed/            # 处理后数据
-│   └── province_panel.csv    # 省级面板数据
+│   ├── README.md                   # 真实数据准备规范
+│   ├── raw/                        # 原始下载数据（可选）
+│   └── province_panel_real.csv     # 用户提供的真实省级面板（必填）
 ├── src/
 │   ├── __init__.py
-│   ├── data_collection.py    # 数据收集与处理
+│   ├── data_collection.py    # 元数据常量 + 真实数据预处理工具
 │   ├── scm_analysis.py       # 合成控制法核心实现
 │   ├── visualization.py      # 可视化模块
 │   └── robustness.py         # 稳健性检验
@@ -76,6 +76,9 @@ scm_zhejiang_prosperity/
 │   └── research_design.md    # 详细研究设计
 └── run_analysis.py           # 主运行脚本
 ```
+
+> 本项目**不再生成或包含任何模拟/合成数据**。运行前必须由研究者基于公开权威
+> 数据来源准备 `data/province_panel_real.csv`，字段规范见 [`data/README.md`](data/README.md)。
 
 ---
 
@@ -93,15 +96,20 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
-### 4.2 运行分析
+### 4.2 准备真实数据
+
+按 [`data/README.md`](data/README.md) 的字段规范，从《中国统计年鉴》《浙江统计年鉴》
+等公开权威来源整理 `data/province_panel_real.csv`。
+
+### 4.3 运行分析
 
 ```bash
 # 完整分析流程
-python run_analysis.py
+python run_analysis.py --data data/province_panel_real.csv
 
 # 或分步运行
-python src/data_collection.py    # 1. 数据准备
-python src/scm_analysis.py       # 2. SCM分析
+python src/data_collection.py    # 1. 打印数据获取指南
+python src/scm_analysis.py       # 2. SCM分析（需先备好 CSV）
 python src/visualization.py      # 3. 可视化
 python src/robustness.py         # 4. 稳健性检验
 ```
@@ -118,7 +126,8 @@ python src/robustness.py         # 4. 稳健性检验
 | 财政收支 | 财政部 | 中国财政年鉴 |
 | 产业结构 | 国家统计局 | 中国统计年鉴 |
 
-**注**：本项目提供模拟数据用于方法演示，实际研究请使用真实数据。
+**注**：本项目仅接受真实数据。研究者必须从上述（或同等权威的）公开来源整理面板数据；
+**禁止使用任何形式的模拟、外推或加噪数值**。
 
 ---
 

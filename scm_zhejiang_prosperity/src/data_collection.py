@@ -3,9 +3,13 @@
 =====================
 
 本模块提供：
-1. 真实数据获取指南
-2. 模拟数据生成（用于方法演示）
-3. 数据预处理函数
+1. 省级面板分析的元数据常量（处理省份、控制省份、变量定义）
+2. 真实数据获取指南
+3. 真实数据的预处理与统计工具
+
+本模块不生成任何模拟/合成/随机数据。
+分析所需的省级面板数据必须由用户基于《中国统计年鉴》等公开权威来源
+准备为 data/province_panel_real.csv，其字段说明见 README.md。
 """
 
 import numpy as np
@@ -76,167 +80,13 @@ PREDICTOR_VARIABLES = {
 
 
 # =============================================================================
-# 二、模拟数据生成
+# 二、（已删除）模拟数据生成
 # =============================================================================
-
-def generate_simulated_data(
-    start_year: int = 2010,
-    end_year: int = 2023,
-    treatment_year: int = 2021,
-    treatment_effect: float = -0.05,  # 城乡收入比下降5%
-    seed: int = 42
-) -> pd.DataFrame:
-    """
-    生成模拟的省级面板数据
-    
-    参数:
-    -----
-    start_year: 起始年份
-    end_year: 结束年份
-    treatment_year: 政策实施年份
-    treatment_effect: 政策效应（对城乡收入比的影响）
-    seed: 随机种子
-    
-    返回:
-    -----
-    DataFrame: 省级面板数据
-    """
-    np.random.seed(seed)
-    
-    years = list(range(start_year, end_year + 1))
-    n_years = len(years)
-    
-    # 所有省份（包括处理组和控制组）
-    all_provinces = [TREATED_PROVINCE] + CONTROL_PROVINCES
-    n_provinces = len(all_provinces)
-    
-    # 省份固定效应（基于实际经济发展水平的大致排序）
-    province_effects = {
-        '浙江': 0.95,      # 发达省份
-        '江苏': 0.98,
-        '广东': 0.92,
-        '山东': 0.85,
-        '福建': 0.82,
-        '辽宁': 0.70,
-        '湖北': 0.68,
-        '湖南': 0.65,
-        '河北': 0.62,
-        '安徽': 0.60,
-        '江西': 0.58,
-        '河南': 0.56,
-        '四川': 0.55,
-        '陕西': 0.52,
-        '山西': 0.50,
-        '内蒙古': 0.48,
-        '吉林': 0.45,
-        '黑龙江': 0.43,
-        '广西': 0.42,
-        '云南': 0.40,
-        '贵州': 0.38,
-        '甘肃': 0.35,
-        '海南': 0.55,
-        '青海': 0.32,
-        '宁夏': 0.38
-    }
-    
-    data_list = []
-    
-    for province in all_provinces:
-        # 省份基础效应
-        base_effect = province_effects.get(province, 0.5)
-        
-        for i, year in enumerate(years):
-            # 时间趋势
-            time_trend = i / n_years
-            
-            # 是否为处理期
-            post_treatment = (province == TREATED_PROVINCE) and (year >= treatment_year)
-            
-            # 1. 城乡收入比（主要结果变量）
-            # 基础值约2.5-3.0，随时间下降
-            base_ratio = 3.2 - 0.8 * base_effect - 0.3 * time_trend
-            noise = np.random.normal(0, 0.05)
-            
-            # 浙江政策效应（逐年增强）
-            if post_treatment:
-                years_since_treatment = year - treatment_year + 1
-                policy_effect = treatment_effect * min(years_since_treatment, 3) / 3
-            else:
-                policy_effect = 0
-            
-            urban_rural_ratio = base_ratio + noise + policy_effect
-            
-            # 2. 人均GDP（万元）
-            base_gdp = 3 + 8 * base_effect + 4 * time_trend + 0.5 * time_trend ** 2
-            gdp_per_capita = base_gdp * (1 + np.random.normal(0, 0.03))
-            if post_treatment:
-                gdp_per_capita *= (1 + 0.02 * (year - treatment_year + 1))  # 政策促进增长
-            
-            # 3. 城镇化率（%）
-            base_urban = 45 + 20 * base_effect + 15 * time_trend
-            urbanization_rate = min(base_urban + np.random.normal(0, 1), 85)
-            
-            # 4. 第三产业占比（%）
-            base_tertiary = 40 + 15 * base_effect + 10 * time_trend
-            tertiary_share = min(base_tertiary + np.random.normal(0, 1.5), 70)
-            
-            # 5. 人均财政支出（万元）
-            base_fiscal = 0.5 + 1.5 * base_effect + 0.8 * time_trend
-            fiscal_expenditure_pc = base_fiscal * (1 + np.random.normal(0, 0.05))
-            
-            # 6. 人均固定资产投资（万元）
-            base_investment = 2 + 5 * base_effect + 3 * time_trend
-            fixed_investment_pc = base_investment * (1 + np.random.normal(0, 0.08))
-            
-            # 7. 人均社会消费品零售额（万元）
-            base_retail = 1 + 3 * base_effect + 2 * time_trend
-            retail_sales_pc = base_retail * (1 + np.random.normal(0, 0.04))
-            
-            # 8. 城镇居民人均可支配收入（万元）
-            base_urban_income = 2 + 4 * base_effect + 2.5 * time_trend
-            urban_income = base_urban_income * (1 + np.random.normal(0, 0.03))
-            
-            # 9. 农村居民人均可支配收入（万元）
-            rural_income = urban_income / urban_rural_ratio
-            
-            # 10. 平均受教育年限
-            base_edu = 8 + 2.5 * base_effect + 0.8 * time_trend
-            education_years = base_edu + np.random.normal(0, 0.2)
-            
-            # 11. 人口密度
-            base_density = 200 + 400 * base_effect
-            population_density = base_density * (1 + np.random.normal(0, 0.02))
-            
-            data_list.append({
-                'province': province,
-                'year': year,
-                'urban_rural_income_ratio': round(urban_rural_ratio, 3),
-                'gdp_per_capita': round(gdp_per_capita, 2),
-                'urban_income': round(urban_income, 2),
-                'rural_income': round(rural_income, 2),
-                'urbanization_rate': round(urbanization_rate, 1),
-                'tertiary_share': round(tertiary_share, 1),
-                'fiscal_expenditure_pc': round(fiscal_expenditure_pc, 3),
-                'fixed_investment_pc': round(fixed_investment_pc, 2),
-                'retail_sales_pc': round(retail_sales_pc, 2),
-                'education_years': round(education_years, 1),
-                'population_density': round(population_density, 0),
-                'treated': 1 if province == TREATED_PROVINCE else 0,
-                'post': 1 if year >= treatment_year else 0
-            })
-    
-    df = pd.DataFrame(data_list)
-    
-    return df
-
-
-def save_simulated_data(df: pd.DataFrame, filename: str = "province_panel.csv"):
-    """保存模拟数据"""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    filepath = DATA_DIR / filename
-    df.to_csv(filepath, index=False, encoding='utf-8-sig')
-    print(f"数据已保存至: {filepath}")
-    return filepath
+#
+# 本项目此前在该位置提供 generate_simulated_data / save_simulated_data 用于
+# 方法演示。出于学术诚信考虑，已彻底删除所有模拟与随机数据生成逻辑——
+# 本模块只接受用户提供的真实数据。
+# 如需准备数据，请参阅 README.md 与 print_data_guide() 中的说明。
 
 
 # =============================================================================
@@ -398,55 +248,20 @@ def get_summary_statistics(df: pd.DataFrame) -> pd.DataFrame:
 # =============================================================================
 
 def main():
-    """数据准备主函数"""
+    """数据准备主函数：仅打印数据获取指南。
+
+    本项目不再生成任何模拟数据；分析所需的省级面板数据必须由研究者基于
+    《中国统计年鉴》《浙江统计年鉴》等公开权威来源整理为
+    data/province_panel_real.csv。具体字段见 README.md。
+    """
     print("=" * 60)
     print("浙江共同富裕示范区政策效应评估 - 数据准备")
     print("=" * 60)
-    
-    # 1. 打印数据获取指南
-    print("\n【步骤1】真实数据获取指南")
+
     print_data_guide()
-    
-    # 2. 生成模拟数据
-    print("\n【步骤2】生成模拟数据（用于方法演示）")
-    df = generate_simulated_data(
-        start_year=2010,
-        end_year=2023,
-        treatment_year=2021,
-        treatment_effect=-0.08  # 假设政策使城乡收入比下降8%
-    )
-    
-    # 3. 数据预处理
-    print("\n【步骤3】数据预处理")
-    df = preprocess_data(df)
-    
-    # 4. 保存数据
-    print("\n【步骤4】保存数据")
-    save_simulated_data(df)
-    
-    # 5. 数据概览
-    print("\n【步骤5】数据概览")
-    print(f"样本量: {len(df)}")
-    print(f"省份数: {df['province'].nunique()}")
-    print(f"时间跨度: {df['year'].min()}-{df['year'].max()}")
-    print(f"\n处理组: {TREATED_PROVINCE}")
-    print(f"处理年份: {TREATMENT_YEAR}")
-    print(f"控制组省份数: {len(CONTROL_PROVINCES)}")
-    
-    print("\n描述性统计:")
-    summary = get_summary_statistics(df)
-    print(summary)
-    
-    # 6. 浙江数据预览
-    print("\n浙江省数据预览:")
-    zj_data = df[df['province'] == '浙江'][['year', 'urban_rural_income_ratio', 'gdp_per_capita', 'urbanization_rate']]
-    print(zj_data.to_string(index=False))
-    
-    print("\n" + "=" * 60)
-    print("数据准备完成！")
-    print("=" * 60)
-    
-    return df
+
+    print("\n请基于上述真实数据来源整理 data/province_panel_real.csv，")
+    print("字段说明见 README.md《数据准备》一节。本项目不提供任何模拟数据。")
 
 
 if __name__ == "__main__":

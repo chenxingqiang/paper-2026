@@ -17,6 +17,36 @@
 任何用于合成控制法估计的数值都必须可追溯到上述（或同等权威的）公开统计来源；
 **禁止使用任何形式的模拟、外推或加噪数值**填充缺失年份/省份。
 
+### 1.1 自动抓取（推荐）
+
+仓库提供 `src/data_crawler.py`，封装了 `data.stats.gov.cn` 的「分省年度数据」
+JSON 接口（通过 `akshare.macro_china_nbs_region`），可一键抓取本项目所需的
+全部 schema 字段并保存为 `data/province_panel_real.csv`：
+
+```bash
+pip install akshare>=1.18
+python -m src.data_crawler --start 2010 --end 2024 \
+    --out data/province_panel_real.csv
+```
+
+执行后会同时产出：
+
+* `data/raw/<indicator>.csv`：每个 NBS 原始指标一份长表（保留原值与单位），
+  便于人工核对与审计；
+* `data/province_panel_real.csv`：拼装后的最终面板，符合下文 schema。
+
+> ⚠️ **网络要求**：`data.stats.gov.cn` 在服务器侧通过 WAF 对境外 IP 段返回
+> `403 / UrlACL`，因此 **必须在国内网络环境运行**该脚本。
+> Codespaces / 海外 CI / Cloud Agent 沙箱会直接报错。
+>
+> 若 NBS 改版导致某指标路径失效，请修改 `src/data_crawler.py` 中
+> `INDICATOR_MAP` / `PER_CAPITA_INDICATORS` / `SHARE_*` 对应条目。
+
+### 1.2 手工整理
+
+若无法运行爬虫，可在 NBS / 统计年鉴页面手工导出 Excel，再按下文 schema
+整理为 `data/province_panel_real.csv`。
+
 ## 2. CSV 字段规范
 
 `data/province_panel_real.csv` 需采用 UTF-8 编码（推荐 `utf-8-sig`），

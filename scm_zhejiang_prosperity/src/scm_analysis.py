@@ -752,14 +752,15 @@ def main():
     
     # 1. 加载数据
     print("\n【步骤1】加载数据")
-    data_path = DATA_DIR / "province_panel.csv"
-    
+    data_path = DATA_DIR / "province_panel_real.csv"
+
     if not data_path.exists():
-        print("数据文件不存在，生成模拟数据...")
-        from data_collection import generate_simulated_data, save_simulated_data
-        data = generate_simulated_data()
-        save_simulated_data(data)
-    
+        raise FileNotFoundError(
+            f"未找到真实面板数据: {data_path}\n"
+            f"本项目不提供任何模拟数据，请先准备真实数据 CSV，"
+            f"详见 README.md《数据准备》一节。"
+        )
+
     data = pd.read_csv(data_path)
     print(f"数据加载完成: {len(data)} 行")
     

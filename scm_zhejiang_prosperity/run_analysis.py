@@ -55,32 +55,38 @@ def parse_args():
 
 def step1_prepare_data(skip: bool = False):
     """步骤1: 数据准备"""
-    
+
     print("\n" + "=" * 60)
     print("【步骤1】数据准备")
     print("=" * 60)
-    
-    data_path = DATA_DIR / "province_panel.csv"
-    
-    if skip and data_path.exists():
-        print("使用已有数据...")
-        data = pd.read_csv(data_path)
+
+    real_path = DATA_DIR / "province_panel_real.csv"
+    sim_path = DATA_DIR / "province_panel.csv"
+
+    # 优先使用基于统计年鉴的真实面板数据
+    if real_path.exists():
+        print(f"使用基于《中国统计年鉴》整理的真实数据: {real_path.name}")
+        data = pd.read_csv(real_path)
+        # 真实数据已经是预处理后的格式，无需再次处理
+    elif skip and sim_path.exists():
+        print("使用已有模拟数据...")
+        data = pd.read_csv(sim_path)
     else:
         print("生成模拟数据...")
         data = generate_simulated_data(
             start_year=2010,
-            end_year=2023,
+            end_year=2024,
             treatment_year=2021,
             treatment_effect=-0.08  # 假设政策使城乡收入比下降8%
         )
         data = preprocess_data(data)
         save_simulated_data(data)
-    
+
     print(f"\n数据概览:")
     print(f"  样本量: {len(data)}")
     print(f"  省份数: {data['province'].nunique()}")
     print(f"  时间跨度: {data['year'].min()}-{data['year'].max()}")
-    
+
     return data
 
 
@@ -225,6 +231,9 @@ def step6_save_results(scm, spatial_results, loo_results):
 def generate_report(scm, p_value: float = None):
     """生成分析报告"""
     
+    rel_eff = scm.att / np.mean(scm.Y_treated) * 100
+    direction = "降低" if scm.att < 0 else "提高"
+    abs_rel = abs(rel_eff)
     report = f"""
 ================================================================================
                     浙江共同富裕示范区政策效应评估报告
@@ -247,11 +256,11 @@ def generate_report(scm, p_value: float = None):
 三、主要发现
 -----------
 平均处理效应(ATT): {scm.att:.4f}
-相对效应: {scm.att / np.mean(scm.Y_treated) * 100:.2f}%
+相对效应: {rel_eff:.2f}%
 
-解读: 
-- ATT为负值表示政策降低了城乡收入比（缩小了城乡差距）
-- 相对效应表示政策使城乡收入比相对下降了约{abs(scm.att / np.mean(scm.Y_treated) * 100):.1f}%
+解读:
+- ATT为{'负' if scm.att < 0 else '正'}值表示政策{direction}了城乡收入比（{'缩小' if scm.att < 0 else '扩大'}了城乡差距）
+- 相对效应表示政策使城乡收入比相对{direction}了约{abs_rel:.1f}%
 
 年度处理效应:
 """
@@ -280,18 +289,28 @@ def generate_report(scm, p_value: float = None):
     for _, row in weights.head(5).iterrows():
         report += f"  {row['province']}: {row['weight']:.4f}\n"
     
+    if scm.att < 0:
+        implication_1 = "1. 浙江共同富裕示范区建设对缩小城乡收入差距具有积极作用"
+        implication_2 = "2. 政策效应随时间推移逐步显现并增强"
+    else:
+        implication_1 = ("1. 在当前模型设定下，处理后浙江实际城乡收入比高于合成控制反事实，"
+                         "说明合成控制法估计的政策因果效应并非显著缩小差距")
+        implication_2 = ("2. 该结果与浙江长期高速下行的城乡差距趋势相关——"
+                         "处理前合成控制拟合误差较大时，估计结果对模型设定较敏感，需结合稳健性检验综合判断")
+
     report += f"""
 六、政策启示
 -----------
-1. 浙江共同富裕示范区建设对缩小城乡收入差距具有积极作用
-2. 政策效应随时间推移逐步显现并增强
+{implication_1}
+{implication_2}
 3. 主要对标省份为{', '.join(weights.head(3)['province'].tolist())}
 
 七、研究局限
 -----------
-1. 本研究使用模拟数据，实际研究需使用真实数据
+1. 浙江省关键变量基于《中国统计年鉴》《浙江统计年鉴》整理，2024年数据为初步核算值；其他省份数据基于2020年基准结合趋势外推，存在估计误差
 2. 合成控制法的因果推断依赖于"无未观测混杂因素"假设
 3. 政策实施时间较短（2021年至今），长期效应需持续跟踪
+4. 处理前拟合RMSE需与估计效应对照评估；当RMSE接近或超过ATT时，结论应保守解释
 
 ================================================================================
                               报告生成时间: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
